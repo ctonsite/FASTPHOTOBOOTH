@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FASTPHOTOBOOTH - Wall Street Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#0A192F; --gold:#C5A880; --white:#fff; }
+  body{margin:0;background:var(--navy);color:var(--white);font-family:'Poppins',sans-serif;display:flex;flex-direction:column;align-items:center;min-height:100vh}
+  h1{color:var(--gold);letter-spacing:4px;margin:20px 0 2px;font-weight:900;font-size:32px}
+  .subtitle{color:#8892B0;margin:0 0 15px;font-size:12px;letter-spacing:5px;font-weight:700}
+  .booth{position:relative;width:90%;max-width:480px;aspect-ratio:3/4;background:#000;border:3px solid var(--gold);border-radius:16px;overflow:hidden;box-shadow:0 0 30px rgba(197,168,128,0.3)}
+  video, canvas{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover}
+  #countdown{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:120px;font-weight:900;color:var(--gold);display:none;z-index:10;text-shadow:0 0 20px #000}
+  .frame-overlay{position:absolute;inset:0;border:12px solid transparent;border-image:linear-gradient(var(--gold),var(--navy)) 1;pointer-events:none;z-index:5}
+  .frame-text{position:absolute;bottom:15px;left:15px;right:15px;display:flex;justify-content:space-between;z-index:6;font-size:12px;color:var(--gold);font-weight:bold}
+  .controls{margin:20px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+  button{background:var(--gold);color:var(--navy);border:none;padding:12px 24px;border-radius:8px;font-weight:800;cursor:pointer;transition:0.2s}
+  button:hover{transform:scale(1.05);background:#fff}
+  button.secondary{background:transparent;color:var(--gold);border:2px solid var(--gold)}
+  .filters{display:flex;gap:8px;margin-bottom:10px}
+  .filters button{padding:6px 12px;font-size:12px}
+  #result{margin-top:20px;display:none;text-align:center}
+  #result img{max-width:90%;border:3px solid var(--gold);border-radius:12px}
+</style>
+</head>
+<body>
+  <h1>FASTPHOTOBOOTH</h1>
+  <p class="subtitle">PREMIUM • FAST • PROFESSIONAL</p>
+  
+  <div class="filters">
+    <button onclick="setFilter('none')">ORIGINAL</button>
+    <button onclick="setFilter('grayscale(1)')">BW PRO</button>
+    <button onclick="setFilter('contrast(1.2) brightness(1.1)')">TRADER</button>
+    <button onclick="setFilter('sepia(0.6)')">GOLD</button>
+  </div>
+
+  <div class="booth" id="booth">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas" style="display:none"></canvas>
+    <div id="countdown">3</div>
+    <div class="frame-overlay"></div>
+    <div class="frame-text">
+      <span>FASTPHOTOBOOTH</span>
+      <span id="dateText"></span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button onclick="startCountdown()">📸 CAPTURE (3s)</button>
+    <button class="secondary" onclick="switchCamera()">🔄 GANTI KAMERA</button>
+  </div>
+
+  <div id="result">
+    <h3 style="color:var(--gold)">HASIL FOTO - FASTPHOTOBOOTH</h3>
+    <img id="photoResult" alt="hasil">
+    <div class="controls">
+      <button onclick="downloadPhoto()">⬇️ DOWNLOAD</button>
+      <button class="secondary" onclick="window.print()">🖨️ PRINT</button>
+      <button class="secondary" onclick="retake()">🔁 ULANG</button>
+    </div>
+  </div>
+
+<script>
+let currentStream, facingMode = "user", currentFilter = "none";
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const countdownEl = document.getElementById('countdown');
+const photoResult = document.getElementById('photoResult');
+
+async function initCamera(){
+  if(currentStream) currentStream.getTracks().forEach(t=>t.stop());
+  try{
+    currentStream = await navigator.mediaDevices.getUserMedia({
+      video:{facingMode, width:{ideal:1080}, height:{ideal:1440}}, audio:false
+    });
+    video.srcObject = currentStream;
+    video.style.filter = currentFilter;
+  }catch(e){ alert("Kamera tidak diizinkan Boss: "+e.message) }
+}
+function setFilter(f){ currentFilter = f; video.style.filter = f; }
+function switchCamera(){ facingMode = facingMode==="user"?"environment":"user"; initCamera(); }
+
+function startCountdown(){
+  let c=3;
+  countdownEl.style.display="block";
+  countdownEl.textContent=c;
+  let timer=setInterval(()=>{
+    c--;
+    if(c>0){ countdownEl.textContent=c; }
+    else{
+      clearInterval(timer);
+      countdownEl.style.display="none";
+      takePhoto();
+    }
+  },1000);
+}
+
+function takePhoto(){
+  const ctx = canvas.getContext('2d');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx.filter = currentFilter;
+  ctx.drawImage(video,0,0);
+  
+  ctx.filter="none";
+  ctx.strokeStyle="#C5A880"; ctx.lineWidth=20; ctx.strokeRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle="#C5A880"; ctx.font="bold "+(canvas.width*0.04)+"px Poppins";
+  ctx.fillText("FASTPHOTOBOOTH",20,canvas.height-25);
+  ctx.fillStyle="#fff"; ctx.font=(canvas.width*0.03)+"px Poppins";
+  ctx.fillText(new Date().toLocaleDateString('id-ID'),canvas.width-160,canvas.height-25);
+
+  const dataUrl = canvas.toDataURL('image/jpeg',0.95);
+  photoResult.src = dataUrl;
+  document.getElementById('result').style.display="block";
+  document.getElementById('result').scrollIntoView({behavior:'smooth'});
+}
+
+function downloadPhoto(){
+  const a=document.createElement('a');
+  a.download="FASTPHOTOBOOTH-"+Date.now()+".jpg";
+  a.href=photoResult.src;
+  a.click();
+}
+function retake(){ document.getElementById('result').style.display="none"; }
+
+document.getElementById('dateText').textContent=new Date().toLocaleDateString('id-ID');
+initCamera();
+</script>
+</body>
+</html>
